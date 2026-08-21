@@ -1,0 +1,14 @@
+{
+  "name": "resell-hub-backend",
+  "version": "1.0.0",
+  "description": "ReSell Hub - Second-Hand Marketplace API",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "lint": "eslint src/**/*.js"
+  },
+  "keywords": ["marketplace", "resell", "ecommerce", "nodejs", "express"],
+  "author": "ReSell Hub",
+  "license": "MIT"
+}
