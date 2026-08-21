@@ -3,40 +3,64 @@ const router = express.Router();
 const {
   register,
   login,
+  googleAuth,
   logout,
   refreshToken,
   getMe,
+  switchRole,
 } = require("../controllers/authController");
 const { protect } = require("../middleware/auth");
 const { authLimiter } = require("../middleware/rateLimiter");
 const {
   registerValidation,
   loginValidation,
+  validate,
 } = require("../middleware/validation");
+const { body } = require("express-validator");
+
+// ─── Public Routes ────────────────────────────────
 
 // @route   POST /api/auth/register
-// @desc    Register new user
-// @access  Public
 router.post("/register", authLimiter, registerValidation, register);
 
 // @route   POST /api/auth/login
-// @desc    Login user
-// @access  Public
 router.post("/login", authLimiter, loginValidation, login);
 
-// @route   POST /api/auth/logout
-// @desc    Logout user
-// @access  Private
-router.post("/logout", protect, logout);
+// @route   POST /api/auth/google
+router.post(
+  "/google",
+  authLimiter,
+  [
+    body("idToken")
+      .notEmpty()
+      .withMessage("Google ID token is required"),
+    validate,
+  ],
+  googleAuth
+);
 
 // @route   POST /api/auth/refresh
-// @desc    Refresh access token using refresh token
-// @access  Public
 router.post("/refresh", refreshToken);
 
+// ─── Private Routes ───────────────────────────────
+
+// @route   POST /api/auth/logout
+router.post("/logout", protect, logout);
+
 // @route   GET /api/auth/me
-// @desc    Get current logged-in user
-// @access  Private
 router.get("/me", protect, getMe);
+
+// @route   PUT /api/auth/role
+router.put(
+  "/role",
+  protect,
+  [
+    body("role")
+      .isIn(["buyer", "seller"])
+      .withMessage("Role must be buyer or seller"),
+    validate,
+  ],
+  switchRole
+);
 
 module.exports = router;
