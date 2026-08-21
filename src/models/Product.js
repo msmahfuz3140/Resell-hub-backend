@@ -1,17 +1,77 @@
 const mongoose = require("mongoose");
 
+// ─── Sub-schemas ──────────────────────────────────
+
+const imageSchema = new mongoose.Schema(
+  {
+    url: {
+      type: String,
+      required: [true, "Image URL is required"],
+    },
+    publicId: {
+      type: String,
+      required: [true, "Image public ID is required"],
+    },
+    isPrimary: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { _id: false }
+);
+
+const sellerInfoSchema = new mongoose.Schema(
+  {
+    sellerId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      required: true,
+    },
+    name: {
+      type: String,
+      required: true,
+    },
+    photo: {
+      type: String,
+      default: null,
+    },
+    phone: {
+      type: String,
+      default: null,
+    },
+    rating: {
+      type: Number,
+      default: 0,
+    },
+    totalSales: {
+      type: Number,
+      default: 0,
+    },
+    location: {
+      city: { type: String, default: null },
+      country: { type: String, default: "Bangladesh" },
+    },
+  },
+  { _id: false }
+);
+
+// ─── Main Product Schema ───────────────────────────
+
 const productSchema = new mongoose.Schema(
   {
+    // ─── Core Info ──────────────────────────────
     title: {
       type: String,
       required: [true, "Product title is required"],
       trim: true,
-      maxlength: [100, "Title cannot exceed 100 characters"],
+      minlength: [5, "Title must be at least 5 characters"],
+      maxlength: [150, "Title cannot exceed 150 characters"],
     },
     description: {
       type: String,
       required: [true, "Description is required"],
-      maxlength: [2000, "Description cannot exceed 2000 characters"],
+      minlength: [20, "Description must be at least 20 characters"],
+      maxlength: [3000, "Description cannot exceed 3000 characters"],
     },
     price: {
       type: Number,
@@ -20,52 +80,92 @@ const productSchema = new mongoose.Schema(
     },
     originalPrice: {
       type: Number,
+      min: [0, "Original price cannot be negative"],
       default: null,
     },
-    images: [
-      {
-        url: { type: String, required: true },
-        publicId: { type: String, required: true },
-      },
-    ],
+
+    // ─── Category & Condition ───────────────────
     category: {
       type: String,
       required: [true, "Category is required"],
-      enum: [
-        "Electronics",
-        "Clothing",
-        "Furniture",
-        "Books",
-        "Sports",
-        "Vehicles",
-        "Home & Garden",
-        "Toys",
-        "Jewelry",
-        "Art",
-        "Music",
-        "Other",
-      ],
+      enum: {
+        values: [
+          "Electronics",
+          "Clothing",
+          "Furniture",
+          "Books",
+          "Sports",
+          "Vehicles",
+          "Home & Garden",
+          "Toys",
+          "Jewelry",
+          "Art",
+          "Music",
+          "Other",
+        ],
+        message: "{VALUE} is not a valid category",
+      },
     },
     condition: {
       type: String,
-      required: [true, "Condition is required"],
-      enum: ["New", "Like New", "Good", "Fair", "Poor"],
+      required: [true, "Product condition is required"],
+      enum: {
+        values: ["New", "Like New", "Good", "Fair", "Poor"],
+        message: "{VALUE} is not a valid condition",
+      },
     },
-    seller: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
-      required: true,
+
+    // ─── Images ─────────────────────────────────
+    images: {
+      type: [imageSchema],
+      validate: {
+        validator: function (v) {
+          return v.length >= 1 && v.length <= 8;
+        },
+        message: "Product must have between 1 and 8 images",
+      },
     },
-    location: {
-      city: { type: String, required: true },
-      state: { type: String, default: null },
-      country: { type: String, default: "BD" },
+
+    // ─── Seller Info (denormalized for performance) ─
+    sellerInfo: {
+      type: sellerInfoSchema,
+      required: [true, "Seller information is required"],
     },
+
+    // ─── Inventory ──────────────────────────────
+    stock: {
+      type: Number,
+      required: [true, "Stock quantity is required"],
+      min: [0, "Stock cannot be negative"],
+      default: 1,
+      validate: {
+        validator: Number.isInteger,
+        message: "Stock must be a whole number",
+      },
+    },
+
+    // ─── Status ─────────────────────────────────
     status: {
       type: String,
-      enum: ["active", "sold", "pending", "rejected", "draft"],
+      enum: {
+        values: ["active", "sold", "pending", "rejected", "draft", "archived"],
+        message: "{VALUE} is not a valid status",
+      },
       default: "active",
     },
+
+    // ─── Location ───────────────────────────────
+    location: {
+      city: {
+        type: String,
+        required: [true, "City is required"],
+        trim: true,
+      },
+      state: { type: String, default: null },
+      country: { type: String, default: "Bangladesh" },
+    },
+
+    // ─── Extra Fields ───────────────────────────
     isFeatured: {
       type: Boolean,
       default: false,
@@ -84,6 +184,7 @@ const productSchema = new mongoose.Schema(
       {
         type: String,
         trim: true,
+        maxlength: [30, "Tag cannot exceed 30 characters"],
       },
     ],
     negotiable: {
@@ -95,9 +196,10 @@ const productSchema = new mongoose.Schema(
       enum: ["In-person", "Delivery", "Both"],
       default: "Both",
     },
-    soldTo: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+
+    // ─── Admin ──────────────────────────────────
+    rejectionReason: {
+      type: String,
       default: null,
     },
     soldAt: {
@@ -112,16 +214,40 @@ const productSchema = new mongoose.Schema(
   }
 );
 
-// Virtual for favorite count
+// ─── Virtuals ─────────────────────────────────────
 productSchema.virtual("favoritesCount").get(function () {
-  return this.favorites.length;
+  return this.favorites ? this.favorites.length : 0;
 });
 
-// Index for search performance
+productSchema.virtual("discountPercent").get(function () {
+  if (!this.originalPrice || this.originalPrice <= this.price) return 0;
+  return Math.round(((this.originalPrice - this.price) / this.originalPrice) * 100);
+});
+
+productSchema.virtual("primaryImage").get(function () {
+  if (!this.images || this.images.length === 0) return null;
+  return this.images.find((img) => img.isPrimary) || this.images[0];
+});
+
+// ─── Indexes ──────────────────────────────────────
 productSchema.index({ title: "text", description: "text", tags: "text" });
 productSchema.index({ category: 1, status: 1 });
-productSchema.index({ seller: 1 });
+productSchema.index({ "sellerInfo.sellerId": 1 });
 productSchema.index({ price: 1 });
 productSchema.index({ createdAt: -1 });
+productSchema.index({ isFeatured: 1, status: 1 });
+productSchema.index({ "location.city": 1, status: 1 });
+productSchema.index({ status: 1, createdAt: -1 });
+
+// ─── Pre-save: Set primary image ──────────────────
+productSchema.pre("save", function (next) {
+  if (this.images && this.images.length > 0) {
+    const hasPrimary = this.images.some((img) => img.isPrimary);
+    if (!hasPrimary) {
+      this.images[0].isPrimary = true;
+    }
+  }
+  next();
+});
 
 module.exports = mongoose.model("Product", productSchema);

@@ -3,10 +3,12 @@ const bcrypt = require("bcryptjs");
 
 const userSchema = new mongoose.Schema(
   {
+    // ─── Basic Info ───────────────────────────────
     name: {
       type: String,
       required: [true, "Name is required"],
       trim: true,
+      minlength: [2, "Name must be at least 2 characters"],
       maxlength: [50, "Name cannot exceed 50 characters"],
     },
     email: {
@@ -15,22 +17,83 @@ const userSchema = new mongoose.Schema(
       unique: true,
       lowercase: true,
       trim: true,
-      match: [/^\S+@\S+\.\S+$/, "Please provide a valid email"],
+      match: [/^\S+@\S+\.\S+$/, "Please provide a valid email address"],
     },
     password: {
       type: String,
       minlength: [6, "Password must be at least 6 characters"],
       select: false,
     },
-    avatar: {
-      type: String,
-      default: null,
+
+    // ─── Profile Photo ────────────────────────────
+    photo: {
+      url: { type: String, default: null },
+      publicId: { type: String, default: null },
     },
+
+    // ─── Role & Status ────────────────────────────
     role: {
       type: String,
-      enum: ["user", "admin"],
-      default: "user",
+      enum: {
+        values: ["buyer", "seller", "admin"],
+        message: "Role must be buyer, seller, or admin",
+      },
+      default: "buyer",
     },
+    status: {
+      type: String,
+      enum: {
+        values: ["active", "inactive", "banned"],
+        message: "Status must be active, inactive, or banned",
+      },
+      default: "active",
+    },
+
+    // ─── Contact Info ─────────────────────────────
+    phone: {
+      type: String,
+      trim: true,
+      match: [/^[0-9+\-\s()]{7,15}$/, "Please provide a valid phone number"],
+      default: null,
+    },
+
+    // ─── Location ─────────────────────────────────
+    location: {
+      address: { type: String, default: null },
+      city: { type: String, default: null },
+      state: { type: String, default: null },
+      country: { type: String, default: "Bangladesh" },
+      postalCode: { type: String, default: null },
+    },
+
+    // ─── Seller Profile ───────────────────────────
+    bio: {
+      type: String,
+      maxlength: [500, "Bio cannot exceed 500 characters"],
+      default: null,
+    },
+    rating: {
+      average: {
+        type: Number,
+        default: 0,
+        min: 0,
+        max: 5,
+      },
+      count: {
+        type: Number,
+        default: 0,
+      },
+    },
+    totalSales: {
+      type: Number,
+      default: 0,
+    },
+    totalPurchases: {
+      type: Number,
+      default: 0,
+    },
+
+    // ─── Auth Provider ────────────────────────────
     provider: {
       type: String,
       enum: ["local", "google"],
@@ -39,41 +102,24 @@ const userSchema = new mongoose.Schema(
     googleId: {
       type: String,
       default: null,
+      select: false,
     },
-    phone: {
-      type: String,
-      default: null,
-    },
-    location: {
-      city: { type: String, default: null },
-      state: { type: String, default: null },
-      country: { type: String, default: null },
-    },
-    bio: {
-      type: String,
-      maxlength: [500, "Bio cannot exceed 500 characters"],
-      default: null,
-    },
-    isVerified: {
+
+    // ─── Verification ─────────────────────────────
+    isEmailVerified: {
       type: Boolean,
       default: false,
     },
-    isActive: {
-      type: Boolean,
-      default: true,
-    },
-    rating: {
-      average: { type: Number, default: 0 },
-      count: { type: Number, default: 0 },
-    },
-    totalSales: {
-      type: Number,
-      default: 0,
-    },
-    refreshToken: {
+    emailVerificationToken: {
       type: String,
       select: false,
     },
+    emailVerificationExpires: {
+      type: Date,
+      select: false,
+    },
+
+    // ─── Password Reset ───────────────────────────
     passwordResetToken: {
       type: String,
       select: false,
@@ -82,33 +128,74 @@ const userSchema = new mongoose.Schema(
       type: Date,
       select: false,
     },
+
+    // ─── Session ──────────────────────────────────
+    refreshToken: {
+      type: String,
+      select: false,
+    },
+    lastLoginAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 
-// Hash password before saving
+// ─── Virtuals ─────────────────────────────────────
+userSchema.virtual("photoUrl").get(function () {
+  return this.photo?.url || null;
+});
+
+userSchema.virtual("fullLocation").get(function () {
+  const loc = this.location;
+  if (!loc) return null;
+  return [loc.city, loc.state, loc.country].filter(Boolean).join(", ");
+});
+
+// ─── Indexes ──────────────────────────────────────
+userSchema.index({ email: 1 });
+userSchema.index({ role: 1, status: 1 });
+userSchema.index({ createdAt: -1 });
+
+// ─── Pre-save Hooks ───────────────────────────────
 userSchema.pre("save", async function (next) {
-  if (!this.isModified("password")) return next();
-  if (this.password) {
-    this.password = await bcrypt.hash(this.password, 12);
-  }
+  if (!this.isModified("password") || !this.password) return next();
+  this.password = await bcrypt.hash(this.password, 12);
   next();
 });
 
-// Compare password method
+// ─── Instance Methods ─────────────────────────────
 userSchema.methods.comparePassword = async function (candidatePassword) {
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-// Remove sensitive fields from JSON output
+userSchema.methods.isSeller = function () {
+  return this.role === "seller" || this.role === "admin";
+};
+
+userSchema.methods.isAdmin = function () {
+  return this.role === "admin";
+};
+
+userSchema.methods.isBanned = function () {
+  return this.status === "banned";
+};
+
+// ─── toJSON - Remove sensitive fields ─────────────
 userSchema.methods.toJSON = function () {
   const obj = this.toObject();
   delete obj.password;
   delete obj.refreshToken;
   delete obj.passwordResetToken;
   delete obj.passwordResetExpires;
+  delete obj.emailVerificationToken;
+  delete obj.emailVerificationExpires;
+  delete obj.googleId;
   return obj;
 };
 
