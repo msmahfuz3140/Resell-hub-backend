@@ -169,13 +169,12 @@ paymentSchema.index({ paymentStatus: 1 });
 paymentSchema.index({ createdAt: -1 });
 
 // ─── Pre-save: Auto-generate transaction ID ────────
-paymentSchema.pre("save", function (next) {
+paymentSchema.pre("save", function () {
   if (!this.transactionId) {
     const timestamp = Date.now().toString(36).toUpperCase();
     const random = Math.random().toString(36).substr(2, 8).toUpperCase();
     this.transactionId = `TXN-${timestamp}-${random}`;
   }
-  next();
 });
 
 module.exports = mongoose.model("Payment", paymentSchema);

@@ -65,7 +65,7 @@ const getMyProducts = async (req, res, next) => {
   try {
     const { page = 1, limit = 12, search, status, sort = "-createdAt" } = req.query;
 
-    const query = { "sellerInfo.sellerId": req.user._id };
+    const query = req.user.role === "admin" ? {} : { "sellerInfo.sellerId": req.user._id };
     if (status && status !== "all") query.status = status;
     if (search) {
       query.$or = [
@@ -363,7 +363,6 @@ const getFeaturedProducts = async (req, res, next) => {
       isFeatured: true,
       status: "active",
     })
-      .populate("seller", "name avatar rating")
       .sort("-createdAt")
       .limit(8);
 

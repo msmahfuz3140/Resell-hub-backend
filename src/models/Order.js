@@ -204,13 +204,12 @@ orderSchema.index({ paymentStatus: 1 });
 orderSchema.index({ createdAt: -1 });
 
 // ─── Pre-save: Generate order number ──────────────
-orderSchema.pre("save", function (next) {
+orderSchema.pre("save", function () {
   if (!this.orderNumber) {
     const timestamp = Date.now().toString(36).toUpperCase();
     const random = Math.random().toString(36).substr(2, 6).toUpperCase();
     this.orderNumber = `RSH-${timestamp}-${random}`;
   }
-  next();
 });
 
 module.exports = mongoose.model("Order", orderSchema);

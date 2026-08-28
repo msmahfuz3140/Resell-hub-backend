@@ -56,16 +56,35 @@ const loginValidation = [
 
 // ─── Product Validations ──────────────────────────
 
+const parseMultipartJson = (req, res, next) => {
+  if (req.body.location && typeof req.body.location === "string") {
+    try {
+      req.body.location = JSON.parse(req.body.location);
+    } catch {
+      req.body.location = { city: req.body.location, country: "Bangladesh" };
+    }
+  }
+  if (req.body.tags && typeof req.body.tags === "string") {
+    try {
+      req.body.tags = JSON.parse(req.body.tags);
+    } catch {
+      req.body.tags = req.body.tags.split(",").map((t) => t.trim());
+    }
+  }
+  next();
+};
+
 const createProductValidation = [
+  parseMultipartJson,
   body("title")
     .trim()
     .notEmpty().withMessage("Product title is required")
-    .isLength({ min: 5, max: 150 }).withMessage("Title must be 5–150 characters"),
+    .isLength({ min: 2, max: 150 }).withMessage("Title must be 2–150 characters"),
 
   body("description")
     .trim()
     .notEmpty().withMessage("Description is required")
-    .isLength({ min: 20, max: 3000 }).withMessage("Description must be 20–3000 characters"),
+    .isLength({ min: 5, max: 5000 }).withMessage("Description must be at least 5 characters"),
 
   body("price")
     .notEmpty().withMessage("Price is required")
@@ -73,23 +92,14 @@ const createProductValidation = [
     .isFloat({ min: 0 }).withMessage("Price cannot be negative"),
 
   body("category")
-    .notEmpty().withMessage("Category is required")
-    .isIn([
-      "Electronics", "Clothing", "Furniture", "Books", "Sports",
-      "Vehicles", "Home & Garden", "Toys", "Jewelry", "Art", "Music", "Other",
-    ]).withMessage("Invalid category"),
+    .notEmpty().withMessage("Category is required"),
 
   body("condition")
-    .notEmpty().withMessage("Condition is required")
-    .isIn(["New", "Like New", "Good", "Fair", "Poor"]).withMessage("Invalid condition"),
+    .notEmpty().withMessage("Condition is required"),
 
   body("stock")
     .optional()
     .isInt({ min: 0 }).withMessage("Stock must be a non-negative integer"),
-
-  body("location.city")
-    .trim()
-    .notEmpty().withMessage("City is required"),
 
   validate,
 ];

@@ -240,14 +240,13 @@ productSchema.index({ "location.city": 1, status: 1 });
 productSchema.index({ status: 1, createdAt: -1 });
 
 // ─── Pre-save: Set primary image ──────────────────
-productSchema.pre("save", function (next) {
+productSchema.pre("save", function () {
   if (this.images && this.images.length > 0) {
     const hasPrimary = this.images.some((img) => img.isPrimary);
     if (!hasPrimary) {
       this.images[0].isPrimary = true;
     }
   }
-  next();
 });
 
 module.exports = mongoose.model("Product", productSchema);

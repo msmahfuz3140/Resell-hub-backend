@@ -158,19 +158,20 @@ userSchema.virtual("fullLocation").get(function () {
 });
 
 // ─── Indexes ──────────────────────────────────────
-userSchema.index({ email: 1 });
 userSchema.index({ role: 1, status: 1 });
 userSchema.index({ createdAt: -1 });
 
 // ─── Pre-save Hooks ───────────────────────────────
-userSchema.pre("save", async function (next) {
-  if (!this.isModified("password") || !this.password) return next();
+userSchema.pre("save", async function () {
+  if (!this.isModified("password") || !this.password) return;
+  // Prevent double-hashing if already a bcrypt hash
+  if (/^\$2[abxy]\$\d+\$/.test(this.password)) return;
   this.password = await bcrypt.hash(this.password, 12);
-  next();
 });
 
 // ─── Instance Methods ─────────────────────────────
 userSchema.methods.comparePassword = async function (candidatePassword) {
+  if (!this.password || !candidatePassword) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };
 

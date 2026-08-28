@@ -33,6 +33,13 @@ const connectDB = async () => {
      State   : ${conn.connection.readyState === 1 ? "Connected" : "Unknown"}
     `);
 
+    try {
+      const { seedDatabase } = require("../seeds/seed");
+      await seedDatabase();
+    } catch (e) {
+      console.warn("⚠️  Seed skipped:", e.message);
+    }
+
     // ─── Connection event listeners ───────────────
     mongoose.connection.on("error", (err) => {
       console.error("❌ MongoDB error:", err.message);
