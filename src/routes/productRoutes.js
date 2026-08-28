@@ -2,7 +2,9 @@ const express = require("express");
 const router = express.Router();
 const {
   getProducts,
+  getMyProducts,
   getProduct,
+  getProductReviews,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -24,6 +26,11 @@ const {
 // @access  Public
 router.get("/featured", getFeaturedProducts);
 
+// @route   GET /api/products/my-products
+// @desc    Get seller's own products
+// @access  Private (seller/admin)
+router.get("/my-products", protect, paginationValidation, getMyProducts);
+
 // @route   GET /api/products
 // @desc    Get all products with filters & pagination
 // @access  Public
@@ -33,6 +40,11 @@ router.get("/", paginationValidation, optionalAuth, getProducts);
 // @desc    Get single product by ID
 // @access  Public
 router.get("/:id", mongoIdParam("id"), optionalAuth, getProduct);
+
+// @route   GET /api/products/:id/reviews
+// @desc    Get reviews for a product
+// @access  Public
+router.get("/:id/reviews", mongoIdParam("id"), getProductReviews);
 
 // @route   POST /api/products
 // @desc    Create a new product listing
@@ -54,6 +66,8 @@ router.put(
   "/:id",
   protect,
   mongoIdParam("id"),
+  upload.array("images", 8),
+  handleUploadError,
   updateProductValidation,
   updateProduct
 );
@@ -69,3 +83,4 @@ router.delete("/:id", protect, mongoIdParam("id"), deleteProduct);
 router.post("/:id/favorite", protect, mongoIdParam("id"), toggleFavorite);
 
 module.exports = router;
+

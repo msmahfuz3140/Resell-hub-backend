@@ -1,4 +1,6 @@
 const Product = require("../models/Product");
+const Review = require("../models/Review");
+const mongoose = require("mongoose");
 const { uploadMultipleImages, deleteImage } = require("../utils/cloudinary");
 const { sendSuccess, sendError, sendPaginated } = require("../utils/response");
 
@@ -23,9 +25,13 @@ const getProducts = async (req, res, next) => {
 
     const query = { status };
 
-    // Search
+    // Search by name or category
     if (search) {
-      query.$text = { $search: search };
+      query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { category: { $regex: search, $options: "i" } },
+        { description: { $regex: search, $options: "i" } },
+      ];
     }
 
     // Filters
@@ -40,11 +46,37 @@ const getProducts = async (req, res, next) => {
     const skip = (page - 1) * limit;
 
     const [products, total] = await Promise.all([
-      Product.find(query)
-        .populate("seller", "name avatar rating location")
-        .sort(sort)
-        .skip(skip)
-        .limit(Number(limit)),
+      Product.find(query).sort(sort).skip(skip).limit(Number(limit)),
+      Product.countDocuments(query),
+    ]);
+
+    return sendPaginated(res, products, page, limit, total);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get seller's own products
+ * @route   GET /api/products/my-products
+ * @access  Private
+ */
+const getMyProducts = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 12, search, status, sort = "-createdAt" } = req.query;
+
+    const query = { "sellerInfo.sellerId": req.user._id };
+    if (status && status !== "all") query.status = status;
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: "i" } },
+        { category: { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const skip = (page - 1) * limit;
+    const [products, total] = await Promise.all([
+      Product.find(query).sort(sort).skip(skip).limit(Number(limit)),
       Product.countDocuments(query),
     ]);
 
@@ -61,10 +93,7 @@ const getProducts = async (req, res, next) => {
  */
 const getProduct = async (req, res, next) => {
   try {
-    const product = await Product.findById(req.params.id).populate(
-      "seller",
-      "name avatar rating location createdAt totalSales"
-    );
+    const product = await Product.findById(req.params.id);
 
     if (!product) {
       return sendError(res, 404, "Product not found.");
@@ -74,6 +103,48 @@ const getProduct = async (req, res, next) => {
     Product.findByIdAndUpdate(req.params.id, { $inc: { views: 1 } }).exec();
 
     return sendSuccess(res, 200, "Product fetched.", { product });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * @desc    Get reviews for a product
+ * @route   GET /api/products/:id/reviews
+ * @access  Public
+ */
+const getProductReviews = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+    const productObjectId = new mongoose.Types.ObjectId(req.params.id);
+
+    const [reviews, total] = await Promise.all([
+      Review.find({ productId: req.params.id, isVisible: true })
+        .sort("-createdAt")
+        .skip(skip)
+        .limit(Number(limit)),
+      Review.countDocuments({ productId: req.params.id, isVisible: true }),
+    ]);
+
+    const stats = await Review.aggregate([
+      { $match: { productId: productObjectId, isVisible: true } },
+      {
+        $group: {
+          _id: null,
+          avgRating: { $avg: "$rating" },
+          count: { $sum: 1 },
+          rating1: { $sum: { $cond: [{ $eq: ["$rating", 1] }, 1, 0] } },
+          rating2: { $sum: { $cond: [{ $eq: ["$rating", 2] }, 1, 0] } },
+          rating3: { $sum: { $cond: [{ $eq: ["$rating", 3] }, 1, 0] } },
+          rating4: { $sum: { $cond: [{ $eq: ["$rating", 4] }, 1, 0] } },
+          rating5: { $sum: { $cond: [{ $eq: ["$rating", 5] }, 1, 0] } },
+        },
+      },
+    ]);
+
+    const ratingStats = stats[0] || { avgRating: 0, count: 0 };
+    return sendPaginated(res, reviews, page, limit, total, { ratingStats });
   } catch (error) {
     next(error);
   }
@@ -97,35 +168,57 @@ const createProduct = async (req, res, next) => {
       negotiable,
       meetupPreference,
       tags,
+      stock,
     } = req.body;
 
-    let images = [];
-
-    // Upload images if provided
-    if (req.files && req.files.length > 0) {
-      const uploadResults = await uploadMultipleImages(req.files);
-      images = uploadResults.map((result) => ({
-        url: result.secure_url,
-        publicId: result.public_id,
-      }));
+    if (!req.files || req.files.length === 0) {
+      return sendError(res, 400, "At least one product image is required.");
     }
+
+    const uploadResults = await uploadMultipleImages(req.files);
+    const images = uploadResults.map((result, index) => ({
+      url: result.secure_url,
+      publicId: result.public_id,
+      isPrimary: index === 0,
+    }));
+
+    // Build sellerInfo from authenticated user
+    const sellerInfo = {
+      sellerId: req.user._id,
+      name: req.user.name,
+      photo: req.user.photo?.url || null,
+      phone: req.user.phone || null,
+      rating: req.user.rating?.average || 0,
+      totalSales: req.user.totalSales || 0,
+      location: {
+        city: req.user.location?.city || null,
+        country: req.user.location?.country || "Bangladesh",
+      },
+    };
+
+    const parsedLocation = location
+      ? (typeof location === "string" ? JSON.parse(location) : location)
+      : { city: "Dhaka", country: "Bangladesh" };
+
+    const parsedTags = tags
+      ? (typeof tags === "string" ? JSON.parse(tags) : tags)
+      : [];
 
     const product = await Product.create({
       title,
       description,
-      price,
-      originalPrice,
+      price: Number(price),
+      originalPrice: originalPrice ? Number(originalPrice) : null,
       category,
       condition,
-      location: typeof location === "string" ? JSON.parse(location) : location,
-      negotiable,
-      meetupPreference,
-      tags: typeof tags === "string" ? JSON.parse(tags) : tags,
+      location: parsedLocation,
+      negotiable: negotiable === "true" || negotiable === true,
+      meetupPreference: meetupPreference || "Both",
+      tags: parsedTags,
       images,
-      seller: req.user._id,
+      stock: stock ? Number(stock) : 1,
+      sellerInfo,
     });
-
-    await product.populate("seller", "name avatar rating");
 
     return sendSuccess(res, 201, "Product listed successfully.", { product });
   } catch (error) {
@@ -146,15 +239,44 @@ const updateProduct = async (req, res, next) => {
       return sendError(res, 404, "Product not found.");
     }
 
-    if (product.seller.toString() !== req.user._id.toString()) {
+    if (
+      product.sellerInfo.sellerId.toString() !== req.user._id.toString() &&
+      req.user.role !== "admin"
+    ) {
       return sendError(res, 403, "Not authorized to update this product.");
     }
 
+    // Handle new image uploads
+    let images = product.images;
+    if (req.files && req.files.length > 0) {
+      for (const img of product.images) {
+        if (img.publicId) await deleteImage(img.publicId);
+      }
+      const uploadResults = await uploadMultipleImages(req.files);
+      images = uploadResults.map((result, index) => ({
+        url: result.secure_url,
+        publicId: result.public_id,
+        isPrimary: index === 0,
+      }));
+    }
+
+    const updateData = { ...req.body };
+    if (req.body.location && typeof req.body.location === "string") {
+      updateData.location = JSON.parse(req.body.location);
+    }
+    if (req.body.tags && typeof req.body.tags === "string") {
+      updateData.tags = JSON.parse(req.body.tags);
+    }
+    if (req.body.price) updateData.price = Number(req.body.price);
+    if (req.body.originalPrice) updateData.originalPrice = Number(req.body.originalPrice);
+    if (req.body.stock) updateData.stock = Number(req.body.stock);
+    updateData.images = images;
+
     const updatedProduct = await Product.findByIdAndUpdate(
       req.params.id,
-      { ...req.body },
+      { $set: updateData },
       { new: true, runValidators: true }
-    ).populate("seller", "name avatar rating");
+    );
 
     return sendSuccess(res, 200, "Product updated.", { product: updatedProduct });
   } catch (error) {
@@ -176,7 +298,7 @@ const deleteProduct = async (req, res, next) => {
     }
 
     if (
-      product.seller.toString() !== req.user._id.toString() &&
+      product.sellerInfo.sellerId.toString() !== req.user._id.toString() &&
       req.user.role !== "admin"
     ) {
       return sendError(res, 403, "Not authorized to delete this product.");
@@ -184,7 +306,7 @@ const deleteProduct = async (req, res, next) => {
 
     // Delete images from Cloudinary
     for (const image of product.images) {
-      await deleteImage(image.publicId);
+      if (image.publicId) await deleteImage(image.publicId);
     }
 
     await product.deleteOne();
@@ -253,7 +375,9 @@ const getFeaturedProducts = async (req, res, next) => {
 
 module.exports = {
   getProducts,
+  getMyProducts,
   getProduct,
+  getProductReviews,
   createProduct,
   updateProduct,
   deleteProduct,

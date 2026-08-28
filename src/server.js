@@ -12,6 +12,8 @@ const { apiLimiter } = require("./middleware/rateLimiter");
 const authRoutes = require("./routes/authRoutes");
 const productRoutes = require("./routes/productRoutes");
 const userRoutes = require("./routes/userRoutes");
+const orderRoutes = require("./routes/orderRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 
 // ─── Connect Database ─────────────────────────────
 connectDB();
@@ -86,6 +88,8 @@ app.get("/health", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/orders", orderRoutes);
+app.use("/api/admin", adminRoutes);
 
 // ─── 404 Handler ──────────────────────────────────
 app.use(notFound);
