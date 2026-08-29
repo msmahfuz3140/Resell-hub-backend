@@ -85,7 +85,9 @@ const createOrder = async (req, res, next) => {
     });
 
     // Create payment record
+    const transactionId = `TXN-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
     await Payment.create({
+      transactionId,
       orderId: order._id,
       buyerId: req.user._id,
       sellerId: order.sellerInfo.userId,

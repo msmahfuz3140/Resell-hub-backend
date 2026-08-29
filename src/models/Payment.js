@@ -25,7 +25,11 @@ const paymentSchema = new mongoose.Schema(
     // ─── Transaction IDs ──────────────────────
     transactionId: {
       type: String,
-      required: [true, "Transaction ID is required"],
+      default: () => {
+        const timestamp = Date.now().toString(36).toUpperCase();
+        const random = Math.random().toString(36).substr(2, 8).toUpperCase();
+        return `TXN-${timestamp}-${random}`;
+      },
       unique: true,
       trim: true,
     },

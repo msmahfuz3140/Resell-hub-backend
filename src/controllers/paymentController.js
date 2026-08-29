@@ -97,7 +97,9 @@ const createPaymentIntent = async (req, res, next) => {
     });
 
     // 2. Create the initial Payment record in DB
+    const transactionId = `TXN-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substr(2, 8).toUpperCase()}`;
     const payment = await Payment.create({
+      transactionId,
       orderId: order._id,
       buyerId: req.user._id,
       sellerId: order.sellerInfo.userId,
