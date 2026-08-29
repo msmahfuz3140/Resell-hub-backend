@@ -298,7 +298,7 @@ const getAdminOrders = async (req, res, next) => {
  */
 const updateAdminOrderStatus = async (req, res, next) => {
   try {
-    const { orderStatus, paymentStatus } = req.body;
+    const { orderStatus, paymentStatus, cancelReason } = req.body;
     let order = null;
 
     if (mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -322,10 +322,40 @@ const updateAdminOrderStatus = async (req, res, next) => {
     if (orderStatus) order.orderStatus = orderStatus;
     if (paymentStatus) order.paymentStatus = paymentStatus;
 
-    if (orderStatus === "completed") order.completedAt = new Date();
-    if (orderStatus === "cancelled") order.cancelledAt = new Date();
+    // When payment is refunded, automatically transition order out of confirmed/active list
+    if (paymentStatus === "refunded") {
+      if (!orderStatus || ["placed", "confirmed", "processing"].includes(order.orderStatus)) {
+        order.orderStatus = "cancelled";
+      }
+      order.cancelledAt = new Date();
+      order.cancelReason = cancelReason || "Refunded by Administrator";
+    }
+
+    if (orderStatus === "completed") {
+      order.completedAt = new Date();
+      if (order.paymentStatus === "pending") order.paymentStatus = "paid";
+    }
+
+    if (orderStatus === "cancelled") {
+      order.cancelledAt = new Date();
+      if (order.paymentStatus === "paid") {
+        order.paymentStatus = "refunded";
+      }
+    }
 
     await order.save();
+
+    // Synchronize associated Payment document in MongoDB
+    const syncStatus = order.paymentStatus === "refunded" ? "refunded" : order.paymentStatus === "paid" ? "completed" : order.paymentStatus;
+    await Payment.findOneAndUpdate(
+      { orderId: order._id },
+      {
+        paymentStatus: syncStatus,
+        refundedAt: order.paymentStatus === "refunded" ? new Date() : undefined,
+        refundAmount: order.paymentStatus === "refunded" ? order.amount : 0,
+        refundReason: order.paymentStatus === "refunded" ? (cancelReason || "Refunded by Administrator") : undefined,
+      }
+    );
 
     return sendSuccess(res, 200, "Order status updated by admin.", { order });
   } catch (error) {
