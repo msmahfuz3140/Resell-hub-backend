@@ -114,7 +114,7 @@ const orderSchema = new mongoose.Schema(
     paymentMethod: {
       type: String,
       enum: {
-        values: ["stripe", "cash", "bank_transfer"],
+        values: ["stripe", "cash", "bank_transfer", "bkash", "nagad"],
         message: "{VALUE} is not a valid payment method",
       },
       default: "stripe",

@@ -47,6 +47,6 @@ router.get("/orders", paginationValidation, getAdminOrders);
 
 // @route   PUT /api/admin/orders/:id/status
 // @desc    Override order status
-router.put("/orders/:id/status", mongoIdParam("id"), updateAdminOrderStatus);
+router.put("/orders/:id/status", updateAdminOrderStatus);
 
 module.exports = router;

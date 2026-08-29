@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const User = require("../models/User");
 const Product = require("../models/Product");
+const Order = require("../models/Order");
 
 const seedDatabase = async () => {
   try {
@@ -299,8 +300,129 @@ const seedDatabase = async () => {
 
     // Remove old seed products and insert the 8 curated featured products
     await Product.deleteMany({ "sellerInfo.sellerId": seller._id });
-    await Product.insertMany(featuredProducts);
+    const createdProducts = await Product.insertMany(featuredProducts);
     console.log("✅ 8 Verified Featured Products Seeded in MongoDB successfully!");
+
+    // 5. Ensure Initial Orders exist in MongoDB
+    const orderCount = await Order.countDocuments();
+    if (orderCount === 0 && createdProducts.length >= 3) {
+      const Order = require("../models/Order");
+      const orders = [
+        {
+          orderNumber: "ORD-94812",
+          productId: createdProducts[0]._id,
+          productSnapshot: {
+            productId: createdProducts[0]._id.toString(),
+            title: createdProducts[0].title,
+            price: createdProducts[0].price,
+            category: createdProducts[0].category,
+            condition: createdProducts[0].condition,
+          },
+          buyerInfo: {
+            userId: buyer._id,
+            name: buyer.name,
+            email: buyer.email,
+            phone: buyer.phone,
+          },
+          sellerInfo: {
+            userId: seller._id,
+            name: seller.name,
+            email: seller.email,
+            phone: seller.phone,
+          },
+          amount: createdProducts[0].price,
+          platformFee: Math.round(createdProducts[0].price * 0.05),
+          sellerAmount: Math.round(createdProducts[0].price * 0.95),
+          orderStatus: "delivered",
+          paymentStatus: "paid",
+          paymentMethod: "stripe",
+          shippingAddress: {
+            fullName: buyer.name,
+            phone: buyer.phone || "+8801700000003",
+            street: "Road 12, Block D",
+            city: "Dhaka",
+            postalCode: "1212",
+            country: "Bangladesh",
+          },
+        },
+        {
+          orderNumber: "ORD-94813",
+          productId: createdProducts[1]._id,
+          productSnapshot: {
+            productId: createdProducts[1]._id.toString(),
+            title: createdProducts[1].title,
+            price: createdProducts[1].price,
+            category: createdProducts[1].category,
+            condition: createdProducts[1].condition,
+          },
+          buyerInfo: {
+            userId: buyer._id,
+            name: buyer.name,
+            email: buyer.email,
+            phone: buyer.phone,
+          },
+          sellerInfo: {
+            userId: seller._id,
+            name: seller.name,
+            email: seller.email,
+            phone: seller.phone,
+          },
+          amount: createdProducts[1].price,
+          platformFee: Math.round(createdProducts[1].price * 0.05),
+          sellerAmount: Math.round(createdProducts[1].price * 0.95),
+          orderStatus: "shipped",
+          paymentStatus: "paid",
+          paymentMethod: "bkash",
+          shippingAddress: {
+            fullName: buyer.name,
+            phone: buyer.phone || "+8801700000003",
+            street: "Agrabad Commercial Area",
+            city: "Chittagong",
+            postalCode: "4000",
+            country: "Bangladesh",
+          },
+        },
+        {
+          orderNumber: "ORD-94814",
+          productId: createdProducts[2]._id,
+          productSnapshot: {
+            productId: createdProducts[2]._id.toString(),
+            title: createdProducts[2].title,
+            price: createdProducts[2].price,
+            category: createdProducts[2].category,
+            condition: createdProducts[2].condition,
+          },
+          buyerInfo: {
+            userId: buyer._id,
+            name: buyer.name,
+            email: buyer.email,
+            phone: buyer.phone,
+          },
+          sellerInfo: {
+            userId: seller._id,
+            name: seller.name,
+            email: seller.email,
+            phone: seller.phone,
+          },
+          amount: createdProducts[2].price,
+          platformFee: Math.round(createdProducts[2].price * 0.05),
+          sellerAmount: Math.round(createdProducts[2].price * 0.95),
+          orderStatus: "placed",
+          paymentStatus: "pending",
+          paymentMethod: "cash",
+          shippingAddress: {
+            fullName: buyer.name,
+            phone: buyer.phone || "+8801700000003",
+            street: "Zindabazar Point",
+            city: "Sylhet",
+            postalCode: "3100",
+            country: "Bangladesh",
+          },
+        },
+      ];
+      await Order.insertMany(orders);
+      console.log("✅ Seed Orders created in MongoDB successfully!");
+    }
   } catch (error) {
     console.error("❌ Seeding Error:", error.message);
   }

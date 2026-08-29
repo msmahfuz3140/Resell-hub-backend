@@ -11,9 +11,13 @@ const jwt = require("jsonwebtoken");
 const https = require("https");
 
 // ─── Helper: Verify Google Token ──────────────────
-const verifyGoogleToken = (idToken) => {
+const verifyGoogleToken = (token) => {
   return new Promise((resolve, reject) => {
-    const url = `https://oauth2.googleapis.com/tokeninfo?id_token=${idToken}`;
+    const isJwt = typeof token === "string" && token.split(".").length === 3;
+    const url = isJwt
+      ? `https://oauth2.googleapis.com/tokeninfo?id_token=${token}`
+      : `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${token}`;
+
     https
       .get(url, (res) => {
         let data = "";
@@ -21,8 +25,8 @@ const verifyGoogleToken = (idToken) => {
         res.on("end", () => {
           try {
             const parsed = JSON.parse(data);
-            if (parsed.error) {
-              reject(new Error(parsed.error_description || "Invalid Google token"));
+            if (parsed.error || parsed.error_description) {
+              reject(new Error(parsed.error_description || parsed.error || "Invalid Google token"));
             } else {
               resolve(parsed);
             }
