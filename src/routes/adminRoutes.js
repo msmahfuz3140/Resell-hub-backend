@@ -10,6 +10,7 @@ const {
   getAdminOrders,
   updateAdminOrderStatus,
 } = require("../controllers/adminController");
+const { getAdminPayments } = require("../controllers/paymentController");
 const { protect, requireAdmin } = require("../middleware/auth");
 const { mongoIdParam, paginationValidation } = require("../middleware/validation");
 
@@ -48,5 +49,9 @@ router.get("/orders", paginationValidation, getAdminOrders);
 // @route   PUT /api/admin/orders/:id/status
 // @desc    Override order status
 router.put("/orders/:id/status", updateAdminOrderStatus);
+
+// @route   GET /api/admin/payments
+// @desc    Monitor all payments across marketplace
+router.get("/payments", paginationValidation, getAdminPayments);
 
 module.exports = router;
