@@ -31,6 +31,12 @@ const userSchema = new mongoose.Schema(
       publicId: { type: String, default: null },
     },
 
+    // ─── Cover Photo ─────────────────────────────
+    coverPhoto: {
+      url: { type: String, default: null },
+      publicId: { type: String, default: null },
+    },
+
     // ─── Role & Status ────────────────────────────
     role: {
       type: String,

@@ -4,6 +4,7 @@ const {
   getUserProfile,
   getUserReviews,
   updateProfile,
+  updateCoverPhoto,
   getUserListings,
   getMyFavorites,
   changePassword,
@@ -34,6 +35,17 @@ router.put(
   handleUploadError,
   updateProfileValidation,
   updateProfile
+);
+
+// @route   PUT /api/users/me/cover
+// @desc    Update current user cover photo
+// @access  Private
+router.put(
+  "/me/cover",
+  protect,
+  upload.single("cover"),
+  handleUploadError,
+  updateCoverPhoto
 );
 
 // @route   PUT /api/users/me/password

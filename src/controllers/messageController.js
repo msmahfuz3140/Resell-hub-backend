@@ -66,6 +66,10 @@ const getOrCreateConversation = async (req, res, next) => {
       return sendError(res, 400, "Product ID is required.");
     }
 
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      return sendError(res, 404, "Invalid Product ID format.");
+    }
+
     const product = await Product.findById(productId);
     if (!product) {
       return sendError(res, 404, "Product not found.");
@@ -78,6 +82,10 @@ const getOrCreateConversation = async (req, res, next) => {
 
     if (sellerId.toString() === senderId.toString()) {
       return sendError(res, 400, "You cannot start a conversation with yourself.");
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(sellerId)) {
+      return sendError(res, 400, "Invalid Seller ID format.");
     }
 
     // Find existing conversation between these two users for this product

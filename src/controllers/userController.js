@@ -188,10 +188,56 @@ const changePassword = asyncHandler(async (req, res) => {
   return sendSuccess(res, 200, "Password changed successfully. Please login again.");
 });
 
+/**
+ * @desc    Update current user cover photo
+ * @route   PUT /api/users/me/cover
+ * @access  Private
+ */
+const updateCoverPhoto = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return sendError(res, 400, "No image file provided.");
+  }
+
+  // Get old cover to delete from Cloudinary
+  const existingUser = await User.findById(req.user._id).select("coverPhoto");
+  if (!existingUser) {
+    return sendError(res, 404, "User not found.");
+  }
+
+  // Delete old cover if exists
+  if (existingUser.coverPhoto?.publicId) {
+    try {
+      await deleteImage(existingUser.coverPhoto.publicId);
+    } catch (e) {
+      console.warn("Failed to delete old cover:", e.message);
+    }
+  }
+
+  // Upload new cover
+  const result = await uploadImage(req.file.buffer, "resell-hub/covers");
+
+  // Use findByIdAndUpdate to skip full validation
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    {
+      $set: {
+        coverPhoto: {
+          url: result.secure_url,
+          publicId: result.public_id,
+        },
+      },
+    },
+    { new: true, runValidators: false }
+  );
+
+  return sendSuccess(res, 200, "Cover photo updated successfully.", { user });
+});
+
 module.exports = {
   getUserProfile,
   getUserReviews,
   updateProfile,
+  updateCoverPhoto,
   getUserListings,
   getMyFavorites,
   changePassword,
