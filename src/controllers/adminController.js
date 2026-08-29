@@ -33,7 +33,15 @@ const getAdminStats = async (req, res, next) => {
       Order.countDocuments(),
       Order.countDocuments({ orderStatus: "completed" }),
       Order.aggregate([
-        { $match: { orderStatus: { $in: ["completed", "delivered", "paid", "shipped"] } } },
+        {
+          $match: {
+            $and: [
+              { paymentStatus: { $in: ["paid", "completed"] } },
+              { orderStatus: { $ne: "cancelled" } },
+              { paymentStatus: { $ne: "refunded" } },
+            ],
+          },
+        },
         {
           $group: {
             _id: null,
@@ -48,8 +56,8 @@ const getAdminStats = async (req, res, next) => {
       ]),
     ]);
 
-    const gmv = revenueStats[0]?.totalGMV || 485000;
-    const platformRevenue = revenueStats[0]?.totalPlatformFees || 24250;
+    const gmv = revenueStats[0]?.totalGMV || 0;
+    const platformRevenue = revenueStats[0]?.totalPlatformFees || Math.round(gmv * 0.05);
 
     // Monthly growth trend (last 6 months synthetic/aggregated)
     const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
