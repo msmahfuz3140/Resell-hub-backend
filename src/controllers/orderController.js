@@ -119,16 +119,33 @@ const createOrder = async (req, res, next) => {
 const getMyOrders = async (req, res, next) => {
   try {
     const { page = 1, limit = 10, status, search } = req.query;
-    const query = { "buyerInfo.userId": req.user._id };
+    const query = {
+      $or: [
+        { "buyerInfo.userId": req.user._id },
+        { "buyerInfo.email": req.user.email },
+      ],
+    };
 
     if (status && status !== "all") {
       query.orderStatus = status;
     }
     if (search) {
-      query.$or = [
-        { "productSnapshot.title": { $regex: search, $options: "i" } },
-        { orderNumber: { $regex: search, $options: "i" } },
+      const searchRegex = { $regex: search, $options: "i" };
+      query.$and = [
+        {
+          $or: [
+            { "buyerInfo.userId": req.user._id },
+            { "buyerInfo.email": req.user.email },
+          ],
+        },
+        {
+          $or: [
+            { "productSnapshot.title": searchRegex },
+            { orderNumber: searchRegex },
+          ],
+        },
       ];
+      delete query.$or;
     }
 
     const skip = (page - 1) * limit;
@@ -152,17 +169,34 @@ const getMyOrders = async (req, res, next) => {
 const getSellerOrders = async (req, res, next) => {
   try {
     const { page = 1, limit = 10, status, search } = req.query;
-    const query = { "sellerInfo.userId": req.user._id };
+    const query = {
+      $or: [
+        { "sellerInfo.userId": req.user._id },
+        { "sellerInfo.email": req.user.email },
+      ],
+    };
 
     if (status && status !== "all") {
       query.orderStatus = status;
     }
     if (search) {
-      query.$or = [
-        { "productSnapshot.title": { $regex: search, $options: "i" } },
-        { orderNumber: { $regex: search, $options: "i" } },
-        { "buyerInfo.name": { $regex: search, $options: "i" } },
+      const searchRegex = { $regex: search, $options: "i" };
+      query.$and = [
+        {
+          $or: [
+            { "sellerInfo.userId": req.user._id },
+            { "sellerInfo.email": req.user.email },
+          ],
+        },
+        {
+          $or: [
+            { "productSnapshot.title": searchRegex },
+            { orderNumber: searchRegex },
+            { "buyerInfo.name": searchRegex },
+          ],
+        },
       ];
+      delete query.$or;
     }
 
     const skip = (page - 1) * limit;
