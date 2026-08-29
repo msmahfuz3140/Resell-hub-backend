@@ -4,6 +4,7 @@ const {
   getAdminStats,
   getAdminUsers,
   updateUserStatus,
+  toggleSellerVerification,
   deleteUser,
   getAdminProducts,
   updateProductStatus,
@@ -29,6 +30,10 @@ router.get("/users", paginationValidation, getAdminUsers);
 // @route   PUT /api/admin/users/:id/status
 // @desc    Block, unblock, or update user status
 router.put("/users/:id/status", mongoIdParam("id"), updateUserStatus);
+
+// @route   PUT /api/admin/users/:id/verify
+// @desc    Toggle verified seller badge
+router.put("/users/:id/verify", mongoIdParam("id"), toggleSellerVerification);
 
 // @route   DELETE /api/admin/users/:id
 // @desc    Delete user and their products

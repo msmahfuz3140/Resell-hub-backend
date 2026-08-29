@@ -1,5 +1,6 @@
 const User = require("../models/User");
 const Product = require("../models/Product");
+const Review = require("../models/Review");
 const { sendSuccess, sendError, sendPaginated } = require("../utils/response");
 const { clearTokenCookies } = require("../utils/jwt");
 const { asyncHandler } = require("../middleware/errorHandler");
@@ -12,7 +13,7 @@ const { uploadImage, deleteImage } = require("../utils/cloudinary");
  */
 const getUserProfile = asyncHandler(async (req, res) => {
   const user = await User.findById(req.params.id).select(
-    "name photo role location bio rating totalSales totalPurchases createdAt status"
+    "name photo role location bio rating totalSales totalPurchases isVerifiedSeller verifiedAt createdAt status"
   );
 
   if (!user) {
@@ -24,6 +25,29 @@ const getUserProfile = asyncHandler(async (req, res) => {
   }
 
   return sendSuccess(res, 200, "User profile fetched.", { user });
+});
+
+/**
+ * @desc    Get reviews received by a seller
+ * @route   GET /api/users/:id/reviews
+ * @access  Public
+ */
+const getUserReviews = asyncHandler(async (req, res) => {
+  const { page = 1, limit = 10 } = req.query;
+  const skip = (page - 1) * limit;
+
+  const query = { revieweeId: req.params.id };
+
+  const [reviews, total] = await Promise.all([
+    Review.find(query)
+      .populate("productId", "title images price")
+      .sort("-createdAt")
+      .skip(skip)
+      .limit(Number(limit)),
+    Review.countDocuments(query),
+  ]);
+
+  return sendPaginated(res, reviews, page, limit, total);
 });
 
 /**
@@ -166,6 +190,7 @@ const changePassword = asyncHandler(async (req, res) => {
 
 module.exports = {
   getUserProfile,
+  getUserReviews,
   updateProfile,
   getUserListings,
   getMyFavorites,

@@ -106,6 +106,14 @@ const userSchema = new mongoose.Schema(
     },
 
     // ─── Verification ─────────────────────────────
+    isVerifiedSeller: {
+      type: Boolean,
+      default: false,
+    },
+    verifiedAt: {
+      type: Date,
+      default: null,
+    },
     isEmailVerified: {
       type: Boolean,
       default: false,

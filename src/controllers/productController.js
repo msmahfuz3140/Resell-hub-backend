@@ -17,6 +17,8 @@ const getProducts = async (req, res, next) => {
       search,
       category,
       condition,
+      city,
+      location,
       minPrice,
       maxPrice,
       sort = "-createdAt",
@@ -37,6 +39,10 @@ const getProducts = async (req, res, next) => {
     // Filters
     if (category) query.category = category;
     if (condition) query.condition = condition;
+    const targetCity = city || location;
+    if (targetCity && targetCity !== "All Locations" && targetCity !== "all") {
+      query["location.city"] = { $regex: targetCity, $options: "i" };
+    }
     if (minPrice || maxPrice) {
       query.price = {};
       if (minPrice) query.price.$gte = Number(minPrice);

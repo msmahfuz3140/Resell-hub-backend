@@ -177,6 +177,40 @@ const updateUserStatus = async (req, res, next) => {
 };
 
 /**
+ * @desc    Toggle seller verification badge (Admin only)
+ * @route   PUT /api/admin/users/:id/verify
+ * @access  Private (Admin)
+ */
+const toggleSellerVerification = async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return sendError(res, 404, "User not found.");
+    }
+
+    const { isVerified } = req.body;
+    user.isVerifiedSeller = isVerified !== undefined ? Boolean(isVerified) : !user.isVerifiedSeller;
+    user.verifiedAt = user.isVerifiedSeller ? new Date() : null;
+    await user.save();
+
+    // Sync isVerifiedSeller across all seller's products
+    await Product.updateMany(
+      { "sellerInfo.sellerId": user._id },
+      { $set: { "sellerInfo.isVerifiedSeller": user.isVerifiedSeller } }
+    );
+
+    return sendSuccess(
+      res,
+      200,
+      `Seller ${user.name} verification status is now ${user.isVerifiedSeller ? "VERIFIED" : "UNVERIFIED"}.`,
+      { user, isVerifiedSeller: user.isVerifiedSeller }
+    );
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
  * @desc    Delete user
  * @route   DELETE /api/admin/users/:id
  * @access  Private (Admin)
@@ -375,6 +409,7 @@ module.exports = {
   getAdminStats,
   getAdminUsers,
   updateUserStatus,
+  toggleSellerVerification,
   deleteUser,
   getAdminProducts,
   updateProductStatus,

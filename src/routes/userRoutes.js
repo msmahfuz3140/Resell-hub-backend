@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const {
   getUserProfile,
+  getUserReviews,
   updateProfile,
   getUserListings,
   getMyFavorites,
@@ -60,6 +61,16 @@ router.get(
   mongoIdParam("id"),
   paginationValidation,
   getUserListings
+);
+
+// @route   GET /api/users/:id/reviews
+// @desc    Get seller's customer reviews
+// @access  Public
+router.get(
+  "/:id/reviews",
+  mongoIdParam("id"),
+  paginationValidation,
+  getUserReviews
 );
 
 module.exports = router;

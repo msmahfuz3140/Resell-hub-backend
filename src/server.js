@@ -16,6 +16,7 @@ const orderRoutes = require("./routes/orderRoutes");
 const adminRoutes = require("./routes/adminRoutes");
 const paymentRoutes = require("./routes/paymentRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const reportRoutes = require("./routes/reportRoutes");
 
 // ─── Connect Database ─────────────────────────────
 connectDB();
@@ -94,6 +95,7 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/reports", reportRoutes);
 
 // ─── 404 Handler ──────────────────────────────────
 app.use(notFound);

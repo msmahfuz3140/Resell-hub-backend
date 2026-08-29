@@ -47,6 +47,10 @@ const sellerInfoSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    isVerifiedSeller: {
+      type: Boolean,
+      default: false,
+    },
     location: {
       city: { type: String, default: null },
       country: { type: String, default: "Bangladesh" },
